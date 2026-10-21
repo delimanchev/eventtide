@@ -25,6 +25,7 @@ Upravlja uporabniške račune, dodeljuje vlogo organizatorja in umika neprimerne
 10. **Priljubljeni dogodki** – Uporabnik shrani zanimive dogodke za poznejši ogled.
 11. **Izvoz udeležencev** – Organizator izvozi seznam udeležencev svojega dogodka v datoteko CSV.
 12. **Statistika dogodkov** – Organizator spremlja zasedenost, število prijav, odpovedi in prisotnih udeležencev.
+13. **Zasebni dogodki s povabilom** – Organizator ustvari zaseben dogodek, do katerega uporabniki dostopajo prek kode ali QR-povezave. Dogodek ni viden v javnem seznamu, prijave pa upoštevajo obstoječa pravila kapacitete in čakalnega seznama.
 
 ## Prva delujoča različica – MVP
 
