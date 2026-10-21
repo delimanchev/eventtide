@@ -38,6 +38,8 @@ erDiagram
         int kapaciteta
         string status
         text razlog_odpovedi
+        string vidnost
+        string koda_povabila UK
     }
 
     PRIJAVA {
@@ -81,6 +83,8 @@ Vsak dogodek ima enega organizatorja in eno kategorijo. Uporabnik in dogodek sta
 - kapaciteta
 - status – osnutek, objavljen, odpovedan ali umaknjen
 - razlog_odpovedi – neobvezno pojasnilo odpovedi ali umika
+- vidnost – javen ali zaseben
+- koda_povabila – enolična naključna koda za zasebni dogodek; pri javnem dogodku je prazna
 
 ### Prijava
 - id – primarni ključ
