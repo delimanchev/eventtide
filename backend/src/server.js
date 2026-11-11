@@ -591,6 +591,91 @@ app.get("/api/dogodki", async (req, res) => {
   }
 });
 
+app.post(
+  "/api/dogodki/:id/prijava",
+  zahtevajPrijavo,
+  zahtevajVlogo("udeleženec"),
+  async (req, res) => {
+    if (req.get("Origin") !== frontendUrl) {
+      return res.status(403).json({ error: "Nedovoljen izvor zahteve." });
+    }
+
+    const { id } = req.params;
+    if (!/^[1-9]\d*$/.test(id) || Number(id) > 2147483647) {
+      return res.status(400).json({ error: "Neveljaven ID dogodka." });
+    }
+
+    let povezava;
+
+    try {
+      povezava = await pool.connect();
+      await povezava.query("BEGIN");
+
+      const { rows: dogodki } = await povezava.query(
+        `SELECT kapaciteta
+         FROM dogodek
+         WHERE id = $1 AND status = 'objavljen' AND vidnost = 'javen'
+         FOR UPDATE`,
+        [id],
+      );
+
+      if (dogodki.length === 0) {
+        await povezava.query("ROLLBACK");
+        return res.status(404).json({ error: "Dogodek ni najden." });
+      }
+
+      const { rows: [stanje] } = await povezava.query(
+        `SELECT d.rok_prijave > statement_timestamp() AS prijave_odprte,
+                (SELECT COUNT(*)::integer
+                 FROM prijava p
+                 WHERE p.dogodek_id = d.id AND p.status = 'potrjena') AS potrjene
+         FROM dogodek d
+         WHERE d.id = $1`,
+        [id],
+      );
+
+      if (!stanje.prijave_odprte) {
+        await povezava.query("ROLLBACK");
+        return res.status(409).json({ error: "Rok za prijavo je potekel." });
+      }
+
+      const status = stanje.potrjene < dogodki[0].kapaciteta
+        ? "potrjena"
+        : "cakalna";
+
+      const { rows: [prijava] } = await povezava.query(
+        `INSERT INTO prijava (uporabnik_id, dogodek_id, status)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (uporabnik_id, dogodek_id) DO NOTHING
+         RETURNING id, dogodek_id, status`,
+        [req.uporabnik.id, id, status],
+      );
+
+      await povezava.query("COMMIT");
+
+      if (!prijava) {
+        return res.status(409).json({ error: "Na ta dogodek si se že prijavil." });
+      }
+
+      return res.status(201).json({ prijava });
+    } catch (error) {
+      if (povezava) {
+        try {
+          await povezava.query("ROLLBACK");
+        } catch (napaka) {
+          povezava.release(napaka);
+          povezava = null;
+        }
+      }
+
+      console.error("Prijava na dogodek ni uspela:", error.code ?? error.name);
+      return res.status(500).json({ error: "Prijava trenutno ni mogoča." });
+    } finally {
+      povezava?.release();
+    }
+  },
+);
+
 app.listen(port, () => {
   console.log(`EventTide API: http://localhost:${port}`);
 });

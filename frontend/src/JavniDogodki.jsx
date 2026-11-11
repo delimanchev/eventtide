@@ -12,7 +12,7 @@ function datum(cas) {
   return oblikovalnikDatuma.format(new Date(cas));
 }
 
-function useJavniApi(pot) {
+function useJavniApi(pot, osvezitev = 0) {
   const [rezultat, nastaviRezultat] = useState(null);
 
   useEffect(() => {
@@ -43,19 +43,87 @@ function useJavniApi(pot) {
 
     nalozi();
     return () => controller.abort();
-  }, [pot]);
+  }, [pot, osvezitev]);
 
   return rezultat?.pot === pot ? rezultat : null;
+}
+
+function PrijavaNaDogodek({ dogodek, poPrijavi }) {
+  const [vTeku, nastaviVTeku] = useState(false);
+  const [sporocilo, nastaviSporocilo] = useState("");
+  const [napaka, nastaviNapako] = useState("");
+  const [casOdprtja] = useState(() => Date.now());
+
+  const rokPotekel = new Date(dogodek.rok_prijave).getTime() <= casOdprtja;
+
+  async function prijavi() {
+    nastaviVTeku(true);
+    nastaviNapako("");
+
+    try {
+      const odgovor = await fetch(
+        `${API_URL}/api/dogodki/${dogodek.id}/prijava`,
+        { method: "POST", credentials: "include" },
+      );
+      const podatki = await odgovor.json();
+
+      if (odgovor.status === 401) {
+        nastaviNapako("Najprej se prijavi v svoj račun.");
+        return;
+      }
+
+      if (!odgovor.ok) {
+        nastaviNapako(podatki.error || "Prijava ni uspela.");
+        return;
+      }
+
+      nastaviSporocilo(
+        podatki.prijava.status === "potrjena"
+          ? "Prijava je potrjena."
+          : "Dodan si na čakalni seznam.",
+      );
+      poPrijavi();
+    } catch {
+      nastaviNapako("Prijave trenutno ni mogoče poslati.");
+    } finally {
+      nastaviVTeku(false);
+    }
+  }
+
+  return (
+    <div>
+      {sporocilo && <p role="status">{sporocilo}</p>}
+      {napaka && <p role="alert">{napaka}</p>}
+      {!sporocilo && (
+        rokPotekel ? (
+          <p>Rok za prijavo je potekel.</p>
+        ) : (
+          <button type="button" onClick={prijavi} disabled={vTeku}>
+            {vTeku
+              ? "Pošiljanje …"
+              : dogodek.prosta_mesta === 0
+                ? "Pridruži se čakalnemu seznamu"
+                : "Prijavi se na dogodek"}
+          </button>
+        )
+      )}
+    </div>
+  );
 }
 
 export default function JavniDogodki() {
   const [filtri, nastaviFiltre] = useState("");
   const [izbraniId, nastaviIzbraniId] = useState(null);
+  const [osvezitev, nastaviOsvezitev] = useState(0);
 
-  const seznam = useJavniApi(`/api/dogodki${filtri ? `?${filtri}` : ""}`);
+  const seznam = useJavniApi(
+    `/api/dogodki${filtri ? `?${filtri}` : ""}`,
+    osvezitev,
+  );
   const izbor = useJavniApi("/api/kategorije");
   const podrobnosti = useJavniApi(
     izbraniId === null ? null : `/api/dogodki/${izbraniId}`,
+    osvezitev,
   );
   const dogodek = podrobnosti?.podatki?.dogodek;
 
@@ -140,6 +208,11 @@ export default function JavniDogodki() {
               <p>Konec: {datum(dogodek.konec)}</p>
               <p>Rok prijave: {datum(dogodek.rok_prijave)}</p>
               <p>Prosta mesta: {dogodek.prosta_mesta}</p>
+              <PrijavaNaDogodek
+                key={dogodek.id}
+                dogodek={dogodek}
+                poPrijavi={() => nastaviOsvezitev((prejsnja) => prejsnja + 1)}
+              />
             </>
           )}
         </section>
