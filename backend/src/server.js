@@ -219,6 +219,266 @@ app.post("/api/auth/logout", (req, res, next) => {
   });
 });
 
+app.post(
+  "/api/organizator/dogodki",
+  zahtevajPrijavo,
+  zahtevajVlogo("organizator"),
+  async (req, res, next) => {
+    if (req.get("Origin") !== frontendUrl) {
+      return res.status(403).json({ error: "Nedovoljen izvor zahteve." });
+    }
+
+    const {
+      naslov, opis, lokacija, kategorija_id,
+      zacetek, konec, rok_prijave, kapaciteta,
+    } = req.body ?? {};
+
+    if (![naslov, opis, lokacija].every(
+      (vrednost) => typeof vrednost === "string" && vrednost.trim(),
+    )) {
+      return res.status(400).json({ error: "Vnesi naslov, opis in lokacijo." });
+    }
+
+    if (![kategorija_id, kapaciteta].every(
+      (vrednost) => Number.isInteger(vrednost) && vrednost > 0 && vrednost <= 2147483647,
+    )) {
+      return res.status(400).json({
+        error: "Izberi kategorijo in vnesi pozitivno celo število mest.",
+      });
+    }
+
+    const termini = [zacetek, konec, rok_prijave];
+
+    if (!termini.every((vrednost) =>
+      typeof vrednost === "string" &&
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/.test(vrednost) &&
+      Number.isFinite(Date.parse(vrednost)),
+    )) {
+      return res.status(400).json({ error: "Vnesi veljavne termine s časovnim pasom." });
+    }
+
+    if (Date.parse(konec) <= Date.parse(zacetek) ||
+        Date.parse(rok_prijave) > Date.parse(zacetek)) {
+      return res.status(400).json({
+        error: "Konec mora biti po začetku, rok prijave pa najpozneje ob začetku.",
+      });
+    }
+
+    try {
+      const { rows } = await pool.query(
+        `INSERT INTO dogodek (
+           organizator_id, kategorija_id, naslov, opis, lokacija,
+           zacetek, konec, rok_prijave, kapaciteta
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id, naslov, status`,
+        [
+          req.uporabnik.id, kategorija_id, naslov.trim(), opis.trim(),
+          lokacija.trim(), zacetek, konec, rok_prijave, kapaciteta,
+        ],
+      );
+
+      return res.status(201).json({ dogodek: rows[0] });
+    } catch (error) {
+      if (error.code === "23503" && error.constraint === "dogodek_kategorija_id_fkey") {
+        return res.status(400).json({ error: "Izbrana kategorija ne obstaja." });
+      }
+      if (["22007", "22008", "23514"].includes(error.code)) {
+        return res.status(400).json({ error: "Preveri termine in kapaciteto." });
+      }
+      return next(error);
+    }
+  },
+);
+
+app.get(
+  "/api/organizator/dogodki",
+  zahtevajPrijavo,
+  zahtevajVlogo("organizator"),
+  async (req, res) => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT id, naslov, opis, lokacija, kategorija_id, kapaciteta,
+                zacetek, konec, rok_prijave, status
+         FROM dogodek
+         WHERE organizator_id = $1
+         ORDER BY zacetek ASC, id ASC`,
+        [req.uporabnik.id],
+      );
+
+      return res.json({ dogodki: rows });
+    } catch (error) {
+      console.error("Branje dogodkov ni uspelo:", error.code ?? error.name);
+      return res.status(500).json({ error: "Dogodkov trenutno ni mogoče prikazati." });
+    }
+  },
+);
+
+app.get("/api/kategorije", async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, naziv FROM kategorija ORDER BY naziv ASC",
+    );
+
+    return res.json({ kategorije: rows });
+  } catch (error) {
+    console.error("Branje kategorij ni uspelo:", error.code ?? error.name);
+    return res.status(500).json({ error: "Kategorij trenutno ni mogoče prikazati." });
+  }
+});
+
+app.post(
+  "/api/organizator/dogodki/:id/objavi",
+  zahtevajPrijavo,
+  zahtevajVlogo("organizator"),
+  async (req, res) => {
+    if (req.get("Origin") !== frontendUrl) {
+      return res.status(403).json({ error: "Nedovoljen izvor zahteve." });
+    }
+
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1 || id > 2147483647) {
+      return res.status(400).json({ error: "Neveljaven ID dogodka." });
+    }
+
+    try {
+      const { rows } = await pool.query(
+        `UPDATE dogodek
+         SET status = 'objavljen'
+         WHERE id = $1 AND organizator_id = $2 AND status = 'osnutek'
+         RETURNING id, naslov, status`,
+        [id, req.uporabnik.id],
+      );
+
+      if (rows.length > 0) {
+        return res.json({ dogodek: rows[0] });
+      }
+
+      const { rowCount } = await pool.query(
+        "SELECT 1 FROM dogodek WHERE id = $1 AND organizator_id = $2",
+        [id, req.uporabnik.id],
+      );
+
+      if (rowCount === 0) {
+        return res.status(404).json({ error: "Dogodek ni najden." });
+      }
+
+      return res.status(409).json({ error: "Objaviš lahko samo osnutek." });
+    } catch (error) {
+      console.error("Objava dogodka ni uspela:", error.code ?? error.name);
+      return res.status(500).json({ error: "Objava dogodka trenutno ni mogoča." });
+    }
+  },
+);
+
+app.patch(
+  "/api/organizator/dogodki/:id",
+  zahtevajPrijavo,
+  zahtevajVlogo("organizator"),
+  async (req, res) => {
+    if (req.get("Origin") !== frontendUrl) {
+      return res.status(403).json({ error: "Nedovoljen izvor zahteve." });
+    }
+
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1 || id > 2147483647) {
+      return res.status(400).json({ error: "Neveljaven ID dogodka." });
+    }
+
+    const besedila = ["naslov", "opis", "lokacija"];
+    const stevila = ["kategorija_id", "kapaciteta"];
+    const datumi = ["zacetek", "konec", "rok_prijave"];
+    const dovoljenaPolja = new Set([...besedila, ...stevila, ...datumi]);
+    const zaklenjenaPolja = new Set(["kapaciteta", ...datumi]);
+
+    const telo = req.body;
+    if (!telo || typeof telo !== "object" || Array.isArray(telo)) {
+      return res.status(400).json({ error: "Pošlji podatke dogodka." });
+    }
+
+    const polja = Object.keys(telo);
+    if (polja.length === 0 || polja.some((polje) => !dovoljenaPolja.has(polje))) {
+      return res.status(400).json({ error: "Neveljavna polja za urejanje." });
+    }
+
+    const vrednosti = [];
+    const nastavitve = [];
+    const datumISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+    for (const polje of polja) {
+      let vrednost = telo[polje];
+
+      if (besedila.includes(polje)) {
+        if (typeof vrednost !== "string" || !vrednost.trim()) {
+          return res.status(400).json({ error: `Izpolni polje ${polje}.` });
+        }
+        vrednost = vrednost.trim();
+      } else if (stevila.includes(polje)) {
+        if (!Number.isInteger(vrednost) || vrednost < 1 || vrednost > 2147483647) {
+          return res.status(400).json({ error: `Neveljavna vrednost za ${polje}.` });
+        }
+      } else if (
+        typeof vrednost !== "string" ||
+        !datumISO.test(vrednost) ||
+        !Number.isFinite(Date.parse(vrednost))
+      ) {
+        return res.status(400).json({ error: `Neveljaven datum za ${polje}.` });
+      }
+
+      vrednosti.push(vrednost);
+      nastavitve.push(`${polje} = $${vrednosti.length}`);
+    }
+
+    const samoOsnutek = polja.some((polje) => zaklenjenaPolja.has(polje));
+
+    try {
+      const { rows } = await pool.query(
+        `UPDATE dogodek
+         SET ${nastavitve.join(", ")}
+         WHERE id = $${vrednosti.length + 1}
+           AND organizator_id = $${vrednosti.length + 2}
+           AND (
+             status = 'osnutek'
+             OR (status = 'objavljen' AND NOT $${vrednosti.length + 3}::boolean)
+           )
+         RETURNING id, naslov, opis, lokacija, kategorija_id, kapaciteta,
+                   zacetek, konec, rok_prijave, status`,
+        [...vrednosti, id, req.uporabnik.id, samoOsnutek],
+      );
+
+      if (rows.length > 0) {
+        return res.json({ dogodek: rows[0] });
+      }
+
+      const obstaja = await pool.query(
+        "SELECT 1 FROM dogodek WHERE id = $1 AND organizator_id = $2",
+        [id, req.uporabnik.id],
+      );
+
+      if (obstaja.rowCount === 0) {
+        return res.status(404).json({ error: "Dogodek ni najden." });
+      }
+
+      return res.status(409).json({
+        error: "Teh polj v trenutnem statusu dogodka ni mogoče spremeniti.",
+      });
+    } catch (error) {
+      if (error.code === "23503") {
+        return res.status(400).json({ error: "Izbrana kategorija ne obstaja." });
+      }
+
+      if (["23514", "22007", "22008"].includes(error.code)) {
+        return res.status(400).json({
+          error: "Preveri termin in rok prijave. Konec mora biti po začetku, rok prijave pa najpozneje ob začetku.",
+        });
+      }
+
+      console.error("Urejanje dogodka ni uspelo:", error.code ?? error.name);
+      return res.status(500).json({ error: "Urejanje dogodka trenutno ni mogoče." });
+    }
+  },
+);
+
 app.listen(port, () => {
   console.log(`EventTide API: http://localhost:${port}`);
 });
