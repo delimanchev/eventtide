@@ -479,6 +479,118 @@ app.patch(
   },
 );
 
+app.get("/api/dogodki/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!/^[1-9]\d*$/.test(id) || Number(id) > 2147483647) {
+    return res.status(400).json({ error: "Neveljaven ID dogodka." });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT d.id, d.naslov, d.opis, d.lokacija, d.zacetek, d.konec,
+              d.rok_prijave, k.naziv AS kategorija,
+              GREATEST(0, d.kapaciteta - (
+                SELECT COUNT(*)::integer
+                FROM prijava p
+                WHERE p.dogodek_id = d.id AND p.status = 'potrjena'
+              )) AS prosta_mesta
+       FROM dogodek d
+       JOIN kategorija k ON k.id = d.kategorija_id
+       WHERE d.id = $1
+         AND d.status = 'objavljen'
+         AND d.vidnost = 'javen'
+         AND d.zacetek > NOW()`,
+      [Number(id)],
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Dogodek ni najden." });
+    }
+
+    return res.json({ dogodek: rows[0] });
+  } catch (error) {
+    console.error("Branje podrobnosti dogodka ni uspelo:", error.code ?? error.name);
+    return res.status(500).json({ error: "Dogodka trenutno ni mogoče prikazati." });
+  }
+});
+
+app.get("/api/dogodki", async (req, res) => {
+  const { iskanje, kategorija_id: kategorijaId, datum } = req.query;
+
+  const pogoji = [
+    "d.status = 'objavljen'",
+    "d.vidnost = 'javen'",
+    "d.zacetek > NOW()",
+  ];
+  const vrednosti = [];
+
+  if (iskanje !== undefined) {
+    if (typeof iskanje !== "string" || iskanje.length > 200) {
+      return res.status(400).json({ error: "Neveljaven iskalni niz." });
+    }
+
+    const niz = iskanje.trim();
+    if (niz) {
+      vrednosti.push(niz);
+      pogoji.push(`strpos(lower(d.naslov), lower($${vrednosti.length})) > 0`);
+    }
+  }
+
+  if (kategorijaId !== undefined) {
+    if (
+      typeof kategorijaId !== "string" ||
+      !/^[1-9]\d*$/.test(kategorijaId) ||
+      Number(kategorijaId) > 2147483647
+    ) {
+      return res.status(400).json({ error: "Neveljavna kategorija." });
+    }
+
+    vrednosti.push(Number(kategorijaId));
+    pogoji.push(`d.kategorija_id = $${vrednosti.length}`);
+  }
+
+  if (datum !== undefined) {
+    if (typeof datum !== "string" || !/^[1-9]\d{3}-\d{2}-\d{2}$/.test(datum)) {
+      return res.status(400).json({ error: "Datum mora biti v obliki LLLL-MM-DD." });
+    }
+
+    const preverjenDatum = new Date(`${datum}T00:00:00Z`);
+    if (
+      !Number.isFinite(preverjenDatum.getTime()) ||
+      preverjenDatum.toISOString().slice(0, 10) !== datum
+    ) {
+      return res.status(400).json({ error: "Neveljaven datum." });
+    }
+
+    vrednosti.push(datum);
+    pogoji.push(
+      `(d.zacetek AT TIME ZONE 'Europe/Ljubljana')::date = $${vrednosti.length}::date`,
+    );
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT d.id, d.naslov, d.lokacija, d.zacetek, d.kategorija_id,
+              k.naziv AS kategorija,
+              GREATEST(0, d.kapaciteta - (
+                SELECT COUNT(*)::integer
+                FROM prijava p
+                WHERE p.dogodek_id = d.id AND p.status = 'potrjena'
+              )) AS prosta_mesta
+       FROM dogodek d
+       JOIN kategorija k ON k.id = d.kategorija_id
+       WHERE ${pogoji.join(" AND ")}
+       ORDER BY d.zacetek ASC, d.id ASC`,
+      vrednosti,
+    );
+
+    return res.json({ dogodki: rows });
+  } catch (error) {
+    console.error("Branje javnih dogodkov ni uspelo:", error.code ?? error.name);
+    return res.status(500).json({ error: "Dogodkov trenutno ni mogoče prikazati." });
+  }
+});
+
 app.listen(port, () => {
   console.log(`EventTide API: http://localhost:${port}`);
 });
