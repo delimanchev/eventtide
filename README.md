@@ -260,10 +260,11 @@ Pripravljeno:
 - Vzorčne okoljske nastavitve.
 - GitHub Project za spremljanje razvoja.
 - Migracije za podatkovne tabele in začetne kategorije.
+- Registracijski obrazec in API za ustvarjanje računa udeleženca. Geslo se shrani zgoščeno z bcrypt.
 
 Naslednji koraki:
 
-- Registracija, prijava in uporabniške vloge.
+- Prijava, odjava in preverjanje uporabniških pravic.
 - Objava in iskanje dogodkov.
 - Prijave, odpovedi in čakalni seznam.
 - Evidentiranje prisotnosti in administratorske funkcije.
