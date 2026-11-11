@@ -676,6 +676,121 @@ app.post(
   },
 );
 
+app.get(
+  "/api/moje-prijave",
+  zahtevajPrijavo,
+  zahtevajVlogo("udeleženec"),
+  async (req, res) => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT p.id, p.dogodek_id, p.status, p.cas_prijave,
+                d.naslov, d.lokacija, d.zacetek, d.status AS status_dogodka
+         FROM prijava p
+         JOIN dogodek d ON d.id = p.dogodek_id
+         WHERE p.uporabnik_id = $1
+         ORDER BY d.zacetek ASC, p.id ASC`,
+        [req.uporabnik.id],
+      );
+
+      return res.json({ prijave: rows });
+    } catch (error) {
+      console.error("Branje prijav ni uspelo:", error.code ?? error.name);
+      return res.status(500).json({ error: "Prijav trenutno ni mogoče prikazati." });
+    }
+  },
+);
+
+app.post(
+  "/api/moje-prijave/:id/odpoved",
+  zahtevajPrijavo,
+  zahtevajVlogo("udeleženec"),
+  async (req, res) => {
+    if (req.get("Origin") !== frontendUrl) {
+      return res.status(403).json({ error: "Nedovoljen izvor zahteve." });
+    }
+
+    const { id } = req.params;
+    if (!/^[1-9]\d*$/.test(id) || Number(id) > 2147483647) {
+      return res.status(400).json({ error: "Neveljaven ID prijave." });
+    }
+
+    const parametri = [id, req.uporabnik.id];
+    let povezava;
+    let transakcija = false;
+
+    try {
+      povezava = await pool.connect();
+      await povezava.query("BEGIN");
+      transakcija = true;
+
+      // Isti zaklep dogodka kot pri novi prijavi v #9.
+      const { rows: [dogodek] } = await povezava.query(
+        `SELECT d.id, d.status
+         FROM prijava p
+         JOIN dogodek d ON d.id = p.dogodek_id
+         WHERE p.id = $1 AND p.uporabnik_id = $2
+         FOR UPDATE OF d`,
+        parametri,
+      );
+
+      if (!dogodek) {
+        return res.status(404).json({ error: "Prijava ni najdena." });
+      }
+
+      // Po pridobitvi zaklepa preberemo trenutno stanje prijave.
+      const { rows: [prijava] } = await povezava.query(
+        `SELECT status FROM prijava
+         WHERE id = $1 AND uporabnik_id = $2`,
+        parametri,
+      );
+
+      if (!prijava || prijava.status === "odpovedana") {
+        return res.status(409).json({ error: "Prijava je že odpovedana." });
+      }
+
+      const { rows: [odpovedana] } = await povezava.query(
+        `UPDATE prijava
+         SET status = 'odpovedana', prisotnost = 'neevidentirana'
+         WHERE id = $1 AND uporabnik_id = $2
+         RETURNING id, dogodek_id, status`,
+        parametri,
+      );
+
+      if (prijava.status === "potrjena" && dogodek.status === "objavljen") {
+        await povezava.query(
+          `UPDATE prijava
+           SET status = 'potrjena'
+           WHERE id = (
+             SELECT id
+             FROM prijava
+             WHERE dogodek_id = $1 AND status = 'cakalna'
+             ORDER BY cas_prijave ASC, id ASC
+             LIMIT 1
+           )`,
+          [dogodek.id],
+        );
+      }
+
+      await povezava.query("COMMIT");
+      transakcija = false;
+
+      return res.json({ prijava: odpovedana });
+    } catch (error) {
+      console.error("Odpoved prijave ni uspela:", error.code ?? error.name);
+      return res.status(500).json({ error: "Odpoved trenutno ni mogoča." });
+    } finally {
+      if (povezava) {
+        try {
+          if (transakcija) await povezava.query("ROLLBACK");
+          povezava.release();
+        } catch (error) {
+          povezava.release(error);
+        }
+      }
+    }
+  },
+);
+
 app.listen(port, () => {
   console.log(`EventTide API: http://localhost:${port}`);
 });
