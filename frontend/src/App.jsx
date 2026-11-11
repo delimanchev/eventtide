@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./App.css";
+import Prijava from "./Prijava.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -43,6 +44,7 @@ export default function App() {
   return (
     <main>
       <h1>EventTide</h1>
+      <Prijava />
       <h2>Ustvari račun</h2>
 
       <form onSubmit={registriraj}>
