@@ -114,7 +114,19 @@ Stanje preverimo z:
 docker compose ps
 ```
 
-### 5. Zagon backenda
+### 5. Priprava podatkovnih tabel in začetnih kategorij
+
+Ko PostgreSQL deluje, iz glavne mape projekta zaženemo:
+
+```bash
+npm run db:migrate --prefix backend
+```
+
+Ukaz ustvari tabele za uporabnike, kategorije, dogodke in prijave ter doda
+začetne kategorije: Izobraževanje, Šport in Umetnost. Ponovni zagon preskoči
+že izvedene migracije.
+
+### 6. Zagon backenda
 
 V ločenem terminalu iz glavne mape:
 
@@ -127,7 +139,7 @@ Backend je privzeto dosegljiv na:
 
 http://localhost:3001
 
-### 6. Zagon frontenda
+### 7. Zagon frontenda
 
 V drugem terminalu iz glavne mape:
 
@@ -247,10 +259,10 @@ Pripravljeno:
 - Pot `/api/health` za preverjanje povezave z bazo.
 - Vzorčne okoljske nastavitve.
 - GitHub Project za spremljanje razvoja.
+- Migracije za podatkovne tabele in začetne kategorije.
 
 Naslednji koraki:
 
-- Priprava tabel in začetnih podatkov.
 - Registracija, prijava in uporabniške vloge.
 - Objava in iskanje dogodkov.
 - Prijave, odpovedi in čakalni seznam.
