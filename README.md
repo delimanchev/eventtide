@@ -280,10 +280,10 @@ Pripravljeno:
 - Organizator lahko ustvari, uredi in objavi svoje dogodke.
 - Javni seznam dogodkov z iskanjem po naslovu, filtri in podrobnostmi.
 - Prijava na dogodek in čakalni seznam.
+- Moje prijave, odpoved in samodejni premik s čakalnega seznama.
 
 Naslednji koraki:
 
-- Moje prijave, odpoved in samodejni premik s čakalnega seznama.
 - Evidentiranje prisotnosti in administratorske funkcije.
 
 ## Avtor

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import DogodkiOrganizatorja from "./DogodkiOrganizatorja.jsx";
+import MojePrijave from "./MojePrijave.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -106,6 +107,7 @@ export default function Prijava() {
           <button type="button" onClick={odjavi} disabled={oddajanje}>
             Odjavi se
           </button>
+          {uporabnik.vloga === "udeleženec" && <MojePrijave key={uporabnik.id} />}
           {uporabnik.vloga === "organizator" && <DogodkiOrganizatorja />}
         </>
       ) : (
