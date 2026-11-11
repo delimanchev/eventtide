@@ -74,18 +74,31 @@ cd eventtide
 
 ### 2. Nastavitev okolja
 
-Ob prvi pripravi kopiramo vzorčni konfiguraciji:
+Ob prvi pripravi iz glavne mape projekta kopiramo vzorčni konfiguraciji:
 
 ```bash
 cp .env.example .env
 cp backend/.env.example backend/.env
 ```
 
-V glavni datoteki `.env` določimo ime baze, uporabnika in geslo. V `backend/.env` nastavimo povezavo z isto bazo.
+V glavni datoteki `.env` nastavimo `POSTGRES_DB`, `POSTGRES_USER` in
+`POSTGRES_PASSWORD`. V `backend/.env` nastavimo ustrezne vrednosti
+`DB_NAME`, `DB_USER` in `DB_PASSWORD`, da se backend poveže z isto bazo.
 
-Vrednost `POSTGRES_PASSWORD` v glavni datoteki se mora ujemati z `DB_PASSWORD` v backendu. Ujemati se morata tudi ime baze in uporabnik.
+Za podpisovanje sejnih piškotkov ustvarimo naključno vrednost:
 
-Datoteki `.env` sta izključeni iz Gita. V repozitoriju hranimo samo vzorčni datoteki `.env.example` brez dejanskih skrivnosti.
+```bash
+openssl rand -hex 32
+```
+
+Izpisano vrednost vpišemo v `backend/.env` kot `SESSION_SECRET`.
+
+Če želimo ustvariti začetnega administratorja, v `backend/.env` nastavimo
+še `ADMIN_EMAIL` in `ADMIN_PASSWORD`. Geslo mora imeti najmanj 12 znakov
+in največ 72 bajtov UTF-8. Račun ustvarimo po izvedbi migracij.
+
+Obe datoteki `.env` sta izključeni iz Gita. V repozitorij dodajamo samo
+vzorčni datoteki `.env.example` brez dejanskih gesel in skrivnosti.
 
 ### 3. Namestitev odvisnosti
 
@@ -261,10 +274,12 @@ Pripravljeno:
 - GitHub Project za spremljanje razvoja.
 - Migracije za podatkovne tabele in začetne kategorije.
 - Registracijski obrazec in API za ustvarjanje računa udeleženca. Geslo se shrani zgoščeno z bcrypt.
+- Prijava in odjava s sejami v PostgreSQL.
+- Preverjanje aktivnega računa in funkcija za preverjanje uporabniških vlog.
+- Skripta za ustvarjanje začetnega administratorja.
 
 Naslednji koraki:
 
-- Prijava, odjava in preverjanje uporabniških pravic.
 - Objava in iskanje dogodkov.
 - Prijave, odpovedi in čakalni seznam.
 - Evidentiranje prisotnosti in administratorske funkcije.
