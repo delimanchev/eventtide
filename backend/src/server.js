@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import pg from "pg";
+import bcrypt from "bcrypt";
 
 const { Pool } = pg;
 
@@ -44,6 +45,54 @@ app.get("/api/health", async (_req, res) => {
       status: "error",
       database: "unavailable",
     });
+  }
+});
+
+app.post("/api/auth/register", async (req, res) => {
+  const { ime, email, geslo } = req.body ?? {};
+
+  if (
+    typeof ime !== "string" ||
+    typeof email !== "string" ||
+    typeof geslo !== "string"
+  ) {
+    return res.status(400).json({ error: "Vnesi ime, e-pošto in geslo." });
+  }
+
+  const cistoIme = ime.trim();
+  const cistEmail = email.trim().toLowerCase();
+
+  if (!cistoIme) {
+    return res.status(400).json({ error: "Vnesi ime." });
+  }
+
+  if (cistEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cistEmail)) {
+    return res.status(400).json({ error: "Vnesi veljaven e-poštni naslov." });
+  }
+
+  if ([...geslo].length < 12 || Buffer.byteLength(geslo, "utf8") > 72) {
+    return res.status(400).json({
+      error: "Geslo mora imeti vsaj 12 znakov in največ 72 bajtov UTF-8.",
+    });
+  }
+
+  try {
+    const gesloHash = await bcrypt.hash(geslo, 12);
+    const { rows } = await pool.query(
+      `INSERT INTO uporabnik (ime, email, geslo_hash)
+       VALUES ($1, $2, $3)
+       RETURNING id, ime, email, vloga, aktiven`,
+      [cistoIme, cistEmail, gesloHash],
+    );
+
+    return res.status(201).json({ uporabnik: rows[0] });
+  } catch (error) {
+    if (error.code === "23505" && error.constraint === "uporabnik_email_uk") {
+      return res.status(409).json({ error: "Ta e-poštni naslov je že v uporabi." });
+    }
+
+    console.error("Registracija ni uspela:", error.code ?? error.name);
+    return res.status(500).json({ error: "Registracija trenutno ni mogoča." });
   }
 });
 
