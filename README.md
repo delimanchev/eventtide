@@ -277,10 +277,11 @@ Pripravljeno:
 - Prijava in odjava s sejami v PostgreSQL.
 - Preverjanje aktivnega računa in funkcija za preverjanje uporabniških vlog.
 - Skripta za ustvarjanje začetnega administratorja.
+- Organizator lahko ustvari, uredi in objavi svoje dogodke.
+- Javni seznam dogodkov z iskanjem po naslovu, filtri in podrobnostmi.
 
 Naslednji koraki:
 
-- Objava in iskanje dogodkov.
 - Prijave, odpovedi in čakalni seznam.
 - Evidentiranje prisotnosti in administratorske funkcije.
 

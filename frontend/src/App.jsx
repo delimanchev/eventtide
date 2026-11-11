@@ -1,6 +1,7 @@
 import { useState } from "react";
 import "./App.css";
 import Prijava from "./Prijava.jsx";
+import JavniDogodki from "./JavniDogodki.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -44,6 +45,7 @@ export default function App() {
   return (
     <main>
       <h1>EventTide</h1>
+      <JavniDogodki />
       <Prijava />
       <h2>Ustvari račun</h2>
 
