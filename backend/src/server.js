@@ -898,6 +898,148 @@ app.patch(
   },
 );
 
+app.get(
+  "/api/admin/uporabniki",
+  zahtevajPrijavo,
+  zahtevajVlogo("administrator"),
+  async (_req, res) => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT id, ime, email, vloga, aktiven
+         FROM uporabnik
+         ORDER BY id ASC`,
+      );
+
+      res.set("Cache-Control", "no-store");
+      return res.json({ uporabniki: rows });
+    } catch (error) {
+      console.error("Branje uporabnikov ni uspelo:", error.code ?? error.name);
+      return res.status(500).json({
+        error: "Uporabnikov trenutno ni mogoče prikazati.",
+      });
+    }
+  },
+);
+
+app.patch(
+  "/api/admin/uporabniki/:id",
+  zahtevajPrijavo,
+  zahtevajVlogo("administrator"),
+  async (req, res) => {
+    if (req.get("Origin") !== frontendUrl) {
+      return res.status(403).json({ error: "Nedovoljen izvor zahteve." });
+    }
+
+    const { id } = req.params;
+    if (!/^[1-9]\d*$/.test(id) || Number(id) > 2147483647) {
+      return res.status(400).json({ error: "Neveljaven ID uporabnika." });
+    }
+
+    const telo = req.body;
+    if (!telo || typeof telo !== "object" || Array.isArray(telo)) {
+      return res.status(400).json({ error: "Pošlji spremembo računa." });
+    }
+
+    const polja = Object.keys(telo);
+    if (
+      polja.length === 0 ||
+      polja.some((polje) => !["vloga", "aktiven"].includes(polje))
+    ) {
+      return res.status(400).json({ error: "Neveljavna polja za spremembo." });
+    }
+
+    const { vloga, aktiven } = telo;
+    if (polja.includes("vloga") && vloga !== "organizator") {
+      return res.status(400).json({ error: "Dodeliš lahko samo vlogo organizatorja." });
+    }
+
+    if (polja.includes("aktiven") && typeof aktiven !== "boolean") {
+      return res.status(400).json({ error: "Stanje računa mora biti true ali false." });
+    }
+
+    try {
+      const { rows: [uporabnik] } = await pool.query(
+        `UPDATE uporabnik
+         SET vloga = COALESCE($2, vloga),
+             aktiven = COALESCE($3, aktiven)
+         WHERE id = $1 AND vloga <> 'administrator'
+         RETURNING id, ime, email, vloga, aktiven`,
+        [id, vloga ?? null, aktiven ?? null],
+      );
+
+      if (!uporabnik) {
+        return res.status(404).json({
+          error: "Uporabnik ni najden ali pa je administratorski račun zaščiten.",
+        });
+      }
+
+      return res.json({ uporabnik });
+    } catch (error) {
+      console.error("Posodobitev uporabnika ni uspela:", error.code ?? error.name);
+      return res.status(500).json({ error: "Računa trenutno ni mogoče posodobiti." });
+    }
+  },
+);
+
+app.get(
+  "/api/admin/dogodki",
+  zahtevajPrijavo,
+  zahtevajVlogo("administrator"),
+  async (_req, res) => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT d.id, d.naslov, d.lokacija, d.zacetek, d.vidnost, d.status,
+                u.ime AS organizator
+         FROM dogodek d
+         JOIN uporabnik u ON u.id = d.organizator_id
+         WHERE d.status = 'objavljen'
+         ORDER BY d.zacetek ASC, d.id ASC`,
+      );
+
+      res.set("Cache-Control", "no-store");
+      return res.json({ dogodki: rows });
+    } catch (error) {
+      console.error("Branje dogodkov za moderiranje ni uspelo:", error.code ?? error.name);
+      return res.status(500).json({ error: "Dogodkov trenutno ni mogoče prikazati." });
+    }
+  },
+);
+
+app.patch(
+  "/api/admin/dogodki/:id/umik",
+  zahtevajPrijavo,
+  zahtevajVlogo("administrator"),
+  async (req, res) => {
+    if (req.get("Origin") !== frontendUrl) {
+      return res.status(403).json({ error: "Nedovoljen izvor zahteve." });
+    }
+
+    const { id } = req.params;
+    if (!/^[1-9]\d*$/.test(id) || Number(id) > 2147483647) {
+      return res.status(400).json({ error: "Neveljaven ID dogodka." });
+    }
+
+    try {
+      const { rows: [dogodek] } = await pool.query(
+        `UPDATE dogodek
+         SET status = 'umaknjen'
+         WHERE id = $1 AND status = 'objavljen'
+         RETURNING id, naslov, status`,
+        [id],
+      );
+
+      if (!dogodek) {
+        return res.status(404).json({ error: "Objavljen dogodek ni najden." });
+      }
+
+      return res.json({ dogodek });
+    } catch (error) {
+      console.error("Umik dogodka ni uspel:", error.code ?? error.name);
+      return res.status(500).json({ error: "Dogodka trenutno ni mogoče umakniti." });
+    }
+  },
+);
+
 app.listen(port, () => {
   console.log(`EventTide API: http://localhost:${port}`);
 });
