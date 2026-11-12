@@ -282,10 +282,11 @@ Pripravljeno:
 - Prijava na dogodek in čakalni seznam.
 - Moje prijave, odpoved in samodejni premik s čakalnega seznama.
 - Pregled prijavljenih in evidentiranje prisotnosti.
+- Administratorsko upravljanje uporabnikov in moderiranje dogodkov.
 
 Naslednji koraki:
 
-- Administratorsko upravljanje uporabnikov in moderiranje dogodkov.
+- Končno preverjanje MVP in navodila za lokalni zagon.
 
 ## Avtor
 
