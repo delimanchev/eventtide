@@ -1,34 +1,32 @@
 # EventTide
 
-EventTide je spletna aplikacija za organizacijo dogodkov in upravljanje prijav udeležencev. Omogočala bo objavo dogodkov, prijave z omejenim številom mest, čakalni seznam in evidentiranje prisotnosti.
-
-Pripravljeno je osnovno razvojno okolje: React frontend, Express backend in povezava s PostgreSQL. Poslovne funkcionalnosti MVP so še v razvoju.
+EventTide je spletna aplikacija za organizacijo dogodkov in upravljanje prijav udeležencev. Omogoča objavo dogodkov, prijave z omejenim številom mest, čakalni seznam in evidentiranje prisotnosti.
 
 ## Uporabniške vloge
 
 - **Udeleženec:** pregleduje dogodke, se prijavlja in upravlja svoje prijave.
-- **Organizator:** ustvarja dogodke, spremlja prijave in evidentira prisotnost.
-- **Administrator:** upravlja uporabniške račune, dodeljuje vloge in umika neprimerne dogodke.
+- **Organizator:** ustvarja in objavlja dogodke, spremlja prijave in evidentira prisotnost.
+- **Administrator:** upravlja uporabniške račune, dodeljuje vlogo organizatorja in umika neprimerne dogodke iz javne objave.
 
-## Načrtovane funkcionalnosti MVP
+## Funkcionalnosti MVP
 
-- Objava, iskanje in filtriranje dogodkov.
+- Objava, iskanje in filtriranje javnih dogodkov.
 - Prijave z upoštevanjem kapacitete.
 - Čakalni seznam s samodejnim zapolnjevanjem sproščenih mest.
 - Pregled in odpoved lastnih prijav.
 - Pregled prijavljenih in evidentiranje prisotnosti.
-- Administratorsko upravljanje uporabnikov in dogodkov.
-- Osnovna registracija, prijava in preverjanje uporabniških pravic.
+- Administratorsko upravljanje uporabnikov in moderiranje dogodkov.
+- Registracija, prijava in preverjanje uporabniških pravic.
 
-Med poznejšimi nadgradnjami so zasebni dogodki s kodo povabila ali QR-povezavo.
+Zasebni dogodki s kodo povabila ali QR-povezavo so predvideni za poznejšo nadgradnjo.
 
 ## Tehnologije
 
 - **Frontend:** React, CSS in Vite.
 - **Backend:** Node.js in Express.
 - **Podatkovna baza:** PostgreSQL.
-- **Dostop do baze:** knjižnica pg.
-- **Avtentikacija – načrtovano:** strežniške seje in bcrypt.
+- **Dostop do baze:** knjižnica `pg`.
+- **Avtentikacija:** strežniške seje v PostgreSQL in zgoščevanje gesel z bcrypt.
 - **Lokalno okolje:** Docker Compose za podatkovno bazo.
 - **Preverjanje kode:** ESLint.
 - **Upravljanje različic:** Git in GitHub.
@@ -63,7 +61,7 @@ Med poznejšimi nadgradnjami so zasebni dogodki s kodo povabila ali QR-povezavo.
 - Docker Desktop z Docker Compose.
 - Git.
 
-Docker Desktop mora biti zagnan.
+Pred zagonom baze odpri Docker Desktop.
 
 ### 1. Kloniranje repozitorija
 
@@ -81,45 +79,36 @@ cp .env.example .env
 cp backend/.env.example backend/.env
 ```
 
-V glavni datoteki `.env` nastavimo `POSTGRES_DB`, `POSTGRES_USER` in
-`POSTGRES_PASSWORD`. V `backend/.env` nastavimo ustrezne vrednosti
-`DB_NAME`, `DB_USER` in `DB_PASSWORD`, da se backend poveže z isto bazo.
+V glavni datoteki `.env` nastavimo `POSTGRES_DB`, `POSTGRES_USER` in `POSTGRES_PASSWORD`. V `backend/.env` nastavimo enake vrednosti v `DB_NAME`, `DB_USER` in `DB_PASSWORD`.
 
-Za podpisovanje sejnih piškotkov ustvarimo naključno vrednost:
+Za podpisovanje sejnih piškotkov ustvarimo naključno skrivnost:
 
 ```bash
-openssl rand -hex 32
+node -e 'console.log(require("node:crypto").randomBytes(32).toString("hex"))'
 ```
 
-Izpisano vrednost vpišemo v `backend/.env` kot `SESSION_SECRET`.
+Izpisano vrednost vpišemo v `backend/.env` za `SESSION_SECRET=`. Če vrstica že obstaja, zamenjamo njeno vrednost.
 
-Če želimo ustvariti začetnega administratorja, v `backend/.env` nastavimo
-še `ADMIN_EMAIL` in `ADMIN_PASSWORD`. Geslo mora imeti najmanj 12 znakov
-in največ 72 bajtov UTF-8. Račun ustvarimo po izvedbi migracij.
+Če želimo ustvariti začetnega administratorja, v `backend/.env` nastavimo še veljaven `ADMIN_EMAIL` in svoje `ADMIN_PASSWORD`. Geslo mora imeti najmanj 12 znakov in največ 72 bajtov UTF-8.
 
-Obe datoteki `.env` sta izključeni iz Gita. V repozitorij dodajamo samo
-vzorčni datoteki `.env.example` brez dejanskih gesel in skrivnosti.
+Obe datoteki `.env` sta izključeni iz Gita. V repozitorij dodajamo samo vzorčni datoteki `.env.example` brez dejanskih gesel in skrivnosti.
 
 ### 3. Namestitev odvisnosti
 
 Iz glavne mape projekta:
 
 ```bash
-npm install --prefix frontend
-npm install --prefix backend
+npm ci --prefix backend
+npm ci --prefix frontend
 ```
 
 ### 4. Zagon podatkovne baze
 
-Iz glavne mape projekta:
-
 ```bash
-docker compose up -d --wait
+docker compose up -d --wait database
 ```
 
-PostgreSQL je na računalniku dosegljiv na naslovu `127.0.0.1:5433`. Znotraj vsebnika uporablja vrata `5432`.
-
-Podatki se shranjujejo v imenovani Docker volume `postgres_data`. Docker Compose imenu volumna običajno doda predpono projekta.
+PostgreSQL je na računalniku dosegljiv na naslovu `127.0.0.1:5433`. Znotraj vsebnika uporablja vrata `5432`. Podatki se shranjujejo v imenovanem Docker volumnu `postgres_data`. Docker Compose imenu volumna običajno doda predpono projekta.
 
 Stanje preverimo z:
 
@@ -127,7 +116,7 @@ Stanje preverimo z:
 docker compose ps
 ```
 
-### 5. Priprava podatkovnih tabel in začetnih kategorij
+### 5. Migracije in začetni administrator
 
 Ko PostgreSQL deluje, iz glavne mape projekta zaženemo:
 
@@ -135,37 +124,37 @@ Ko PostgreSQL deluje, iz glavne mape projekta zaženemo:
 npm run db:migrate --prefix backend
 ```
 
-Ukaz ustvari tabele za uporabnike, kategorije, dogodke in prijave ter doda
-začetne kategorije: Izobraževanje, Šport in Umetnost. Ponovni zagon preskoči
-že izvedene migracije.
+Ukaz ustvari podatkovne tabele in tabelo za uporabniške seje ter doda začetne kategorije: Izobraževanje, Šport in Umetnost. Ponovni zagon preskoči že izvedene migracije.
+
+Če smo nastavili `ADMIN_EMAIL` in `ADMIN_PASSWORD`, po migracijah ustvarimo začetnega administratorja:
+
+```bash
+npm run admin:create --prefix backend
+```
+
+Administrator se prijavi prek istega obrazca kot drugi uporabniki. Nove račune, ki jih ustvarimo prek registracijskega obrazca, aplikacija privzeto registrira kot udeležence.
 
 ### 6. Zagon backenda
 
-V ločenem terminalu iz glavne mape:
+V ločenem terminalu iz glavne mape projekta:
 
 ```bash
-cd backend
-npm run dev
+npm run dev --prefix backend
 ```
 
-Backend je privzeto dosegljiv na:
-
-http://localhost:3001
+Backend je privzeto dosegljiv na [http://localhost:3001](http://localhost:3001).
 
 ### 7. Zagon frontenda
 
-V drugem terminalu iz glavne mape:
+V drugem terminalu iz glavne mape projekta:
 
 ```bash
-cd frontend
-npm run dev
+npm run dev --prefix frontend
 ```
 
-Frontend je privzeto dosegljiv na:
+Frontend je privzeto dosegljiv na [http://localhost:5173](http://localhost:5173).
 
-http://localhost:5173
-
-Uporabimo naslov, ki ga izpiše Vite. Če uporablja druga vrata, ustrezno prilagodimo `FRONTEND_URL` v `backend/.env` in ponovno zaženemo backend.
+Uporabimo naslov, ki ga izpiše Vite. Če uporablja druga vrata, ustrezno prilagodimo `FRONTEND_URL` v `backend/.env` in ponovno zaženemo backend. Na sveži bazi je javni seznam prazen, dokler organizator ne objavi prvega prihodnjega javnega dogodka.
 
 ## Preverjanje delovanja
 
@@ -197,15 +186,13 @@ Pričakujemo HTTP 503:
 Bazo nato ponovno zaženemo:
 
 ```bash
-docker compose up -d --wait
+docker compose up -d --wait database
 curl -i http://localhost:3001/api/health
 ```
 
 Odgovor mora ponovno vrniti HTTP 200.
 
 ### Preverjanje frontenda
-
-Iz glavne mape:
 
 ```bash
 npm run lint --prefix frontend
@@ -214,9 +201,19 @@ npm run build --prefix frontend
 
 Prvi ukaz preveri kodo z ESLint, drugi pa pripravi produkcijsko različico frontenda.
 
+### Funkcionalni preizkus MVP
+
+1. Organizator objavi prihodnji javni dogodek s kapaciteto enega mesta. Obiskovalec ga brez prijave najde prek iskanja in odpre podrobnosti.
+2. Prvi udeleženec dobi potrjeno prijavo, drugi pa se uvrsti na čakalni seznam.
+3. Prvi udeleženec odpove prijavo. Drugi v razdelku **Moje prijave** po osvežitvi vidi status **Potrjena**.
+4. Organizator označi drugega udeleženca kot prisotnega in preveri, da je oznaka po osvežitvi še vedno shranjena.
+5. Administrator umakne dogodek iz objave. Po osvežitvi ga ni več na javnem seznamu, javne podrobnosti pa niso več dostopne.
+
+Po objavi ali umiku dogodka osvežimo stran, da vidimo najnovejši javni seznam.
+
 ## Ustavitev aplikacije
 
-Frontend in backend ustavimo s `Ctrl + C` v njunih terminalih.
+Frontend in backend ustavimo s `Ctrl+C` v njunih terminalih.
 
 Podatkovno bazo ustavimo iz glavne mape:
 
@@ -227,10 +224,10 @@ docker compose stop
 Ponovno jo zaženemo z:
 
 ```bash
-docker compose up -d --wait
+docker compose up -d --wait database
 ```
 
-Podatki se pri ustavitvi ohranijo v volumnu. Ukaz `docker compose down -v` odstrani tudi volume in podatke.
+Podatki se pri ustavitvi ohranijo v volumnu. Ukaz `docker compose down -v` odstrani tudi volumen in podatke.
 
 ## Razvojni proces
 
@@ -241,7 +238,7 @@ Uporabljamo GitHub Flow:
 3. Spremembe shranjujemo s smiselnimi commiti.
 4. Razvojno vejo pošljemo na GitHub.
 5. Odpremo pull request v `main`.
-6. V PR opišemo spremembe, preverjanje in povezane Issues.
+6. V PR opišemo spremembe, preverjanje in povezane naloge.
 7. Po preverjanju spremembe združimo in lokalno posodobimo `main`.
 
 Primer povezave v opisu PR:
@@ -252,41 +249,11 @@ Closes #2
 
 Vejo `main` ščiti obvezen pull request brez zahtevanih odobritev. Force push in brisanje sta prepovedana, pravila pa veljajo tudi za administratorja.
 
-Razvoj spremljamo na tabli **EventTide – MVP** s stolpci:
-
-- **To Do:** načrtovane naloge.
-- **Doing:** naloge v izvajanju.
-- **Done:** zaključene in preverjene naloge.
-
-Vsak razvojni Issue vsebuje opis naloge in oznako povezane uporabniške zgodbe. Implementirane funkcionalnosti preverjamo glede na sprejemne kriterije v dokumentaciji.
+Razvoj spremljamo na tabli **EventTide – MVP** s stolpci **To Do**, **Doing** in **Done**. Implementirane funkcionalnosti preverjamo glede na sprejemne kriterije v dokumentaciji.
 
 ## Trenutno stanje
 
-Pripravljeno:
-
-- Projektna dokumentacija in wireframe-i.
-- Predloga in osem arhitekturnih odločitev.
-- Osnovni React frontend z Vite.
-- Osnovni Express backend.
-- PostgreSQL prek Docker Compose z imenovanim volumnom.
-- Pot `/api/health` za preverjanje povezave z bazo.
-- Vzorčne okoljske nastavitve.
-- GitHub Project za spremljanje razvoja.
-- Migracije za podatkovne tabele in začetne kategorije.
-- Registracijski obrazec in API za ustvarjanje računa udeleženca. Geslo se shrani zgoščeno z bcrypt.
-- Prijava in odjava s sejami v PostgreSQL.
-- Preverjanje aktivnega računa in funkcija za preverjanje uporabniških vlog.
-- Skripta za ustvarjanje začetnega administratorja.
-- Organizator lahko ustvari, uredi in objavi svoje dogodke.
-- Javni seznam dogodkov z iskanjem po naslovu, filtri in podrobnostmi.
-- Prijava na dogodek in čakalni seznam.
-- Moje prijave, odpoved in samodejni premik s čakalnega seznama.
-- Pregled prijavljenih in evidentiranje prisotnosti.
-- Administratorsko upravljanje uporabnikov in moderiranje dogodkov.
-
-Naslednji koraki:
-
-- Končno preverjanje MVP in navodila za lokalni zagon.
+Funkcionalnosti MVP so implementirane. Preverjen je bil celoten potek od objave dogodka do prijave, čakalnega seznama, odpovedi, evidentiranja prisotnosti in umika iz objave. Preverjena sta bila tudi lokalni zagon iz svežega klona z ločeno bazo in prijava novega administratorja.
 
 ## Avtor
 
