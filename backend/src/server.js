@@ -791,6 +791,113 @@ app.post(
   },
 );
 
+app.get(
+  "/api/organizator/dogodki/:id/prijave",
+  zahtevajPrijavo,
+  zahtevajVlogo("organizator"),
+  async (req, res) => {
+    const { id } = req.params;
+    if (!/^[1-9]\d*$/.test(id) || Number(id) > 2147483647) {
+      return res.status(400).json({ error: "Neveljaven ID dogodka." });
+    }
+
+    try {
+      const { rows: [dogodek] } = await pool.query(
+        `SELECT d.id, d.naslov,
+                COALESCE(
+                  json_agg(
+                    json_build_object(
+                      'id', p.id,
+                      'ime', u.ime,
+                      'status', p.status,
+                      'prisotnost', p.prisotnost
+                    )
+                    ORDER BY p.cas_prijave ASC, p.id ASC
+                  ) FILTER (WHERE p.id IS NOT NULL),
+                  '[]'::json
+                ) AS prijave
+         FROM dogodek d
+         LEFT JOIN prijava p ON p.dogodek_id = d.id
+         LEFT JOIN uporabnik u ON u.id = p.uporabnik_id
+         WHERE d.id = $1 AND d.organizator_id = $2
+         GROUP BY d.id, d.naslov`,
+        [id, req.uporabnik.id],
+      );
+
+      if (!dogodek) {
+        return res.status(404).json({ error: "Dogodek ni najden." });
+      }
+
+      return res.json({ dogodek });
+    } catch (error) {
+      console.error("Branje prijav dogodka ni uspelo:", error.code ?? error.name);
+      return res.status(500).json({ error: "Prijav trenutno ni mogoče prikazati." });
+    }
+  },
+);
+
+app.patch(
+  "/api/organizator/dogodki/:id/prijave/:prijavaId/prisotnost",
+  zahtevajPrijavo,
+  zahtevajVlogo("organizator"),
+  async (req, res) => {
+    if (req.get("Origin") !== frontendUrl) {
+      return res.status(403).json({ error: "Nedovoljen izvor zahteve." });
+    }
+
+    const { id, prijavaId } = req.params;
+    const veljavenId = (vrednost) =>
+      /^[1-9]\d*$/.test(vrednost) && Number(vrednost) <= 2147483647;
+
+    if (!veljavenId(id) || !veljavenId(prijavaId)) {
+      return res.status(400).json({ error: "Neveljaven ID dogodka ali prijave." });
+    }
+
+    const { prisotnost } = req.body ?? {};
+    if (!["prisoten", "odsoten", "neevidentirana"].includes(prisotnost)) {
+      return res.status(400).json({ error: "Neveljavna vrednost prisotnosti." });
+    }
+
+    const parametri = [id, prijavaId, req.uporabnik.id];
+
+    try {
+      const { rows: [prijava] } = await pool.query(
+        `UPDATE prijava p
+         SET prisotnost = $4
+         FROM dogodek d
+         WHERE d.id = $1
+           AND p.dogodek_id = d.id
+           AND p.id = $2
+           AND d.organizator_id = $3
+           AND p.status = 'potrjena'
+         RETURNING p.id, p.status, p.prisotnost`,
+        [...parametri, prisotnost],
+      );
+
+      if (prijava) return res.json({ prijava });
+
+      const { rowCount } = await pool.query(
+        `SELECT 1
+         FROM prijava p
+         JOIN dogodek d ON d.id = p.dogodek_id
+         WHERE d.id = $1 AND p.id = $2 AND d.organizator_id = $3`,
+        parametri,
+      );
+
+      if (rowCount === 0) {
+        return res.status(404).json({ error: "Prijava ni najdena." });
+      }
+
+      return res.status(409).json({
+        error: "Prisotnost lahko spremeniš samo pri potrjeni prijavi.",
+      });
+    } catch (error) {
+      console.error("Shranjevanje prisotnosti ni uspelo:", error.code ?? error.name);
+      return res.status(500).json({ error: "Prisotnosti trenutno ni mogoče shraniti." });
+    }
+  },
+);
+
 app.listen(port, () => {
   console.log(`EventTide API: http://localhost:${port}`);
 });

@@ -281,10 +281,11 @@ Pripravljeno:
 - Javni seznam dogodkov z iskanjem po naslovu, filtri in podrobnostmi.
 - Prijava na dogodek in čakalni seznam.
 - Moje prijave, odpoved in samodejni premik s čakalnega seznama.
+- Pregled prijavljenih in evidentiranje prisotnosti.
 
 Naslednji koraki:
 
-- Evidentiranje prisotnosti in administratorske funkcije.
+- Administratorsko upravljanje uporabnikov in moderiranje dogodkov.
 
 ## Avtor
 
