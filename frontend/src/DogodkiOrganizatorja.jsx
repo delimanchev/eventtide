@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import PrijaveDogodka from "./PrijaveDogodka.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const POT = "/api/organizator/dogodki";
@@ -143,6 +144,7 @@ export default function DogodkiOrganizatorja() {
                 Objavi
               </button>
             )}
+            <PrijaveDogodka dogodekId={dogodek.id} />
           </li>
         ))}
       </ul>
