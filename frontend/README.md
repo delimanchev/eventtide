@@ -1,16 +1,25 @@
-# React + Vite
+# EventTide frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Vmesnik v Reactu in Vite za pregled javnih dogodkov, prijavo na dogodke in upravljanje prijav. Organizatorji in administratorji imajo svoja orodja v pogledu **Moj račun**.
 
-Currently, two official plugins are available:
+## Lokalni zagon
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Najprej pripravi podatkovno bazo in zaženi backend po [navodilih za lokalni zagon](../README.md#lokalni-zagon). Nato iz mape `frontend` zaženi:
 
-## React Compiler
+```bash
+npm ci
+npm run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Odpri naslov, ki ga izpiše Vite. Privzeto je [http://localhost:5173](http://localhost:5173).
 
-## Expanding the ESLint configuration
+Frontend privzeto uporablja API na `http://localhost:3001`. Če backend posluša drugje, nastavi `VITE_API_URL` v datoteki `frontend/.env.local` in ponovno zaženi Vite. Vrednost uporabi brez zaključne poševnice. Če spremeniš naslov frontenda, nastavi tudi `FRONTEND_URL` v `backend/.env` in ponovno zaženi backend.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Preverjanje
+
+```bash
+npm run lint
+npm run build
+```
+
+Gradnja ustvari mapo `dist/`.

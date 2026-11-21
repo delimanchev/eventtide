@@ -1,8 +1,8 @@
 # EventTide
 
-EventTide je spletna aplikacija za organizacijo dogodkov in upravljanje prijav udeležencev. Omogočala bo objavo dogodkov, prijave z omejenim številom mest, čakalni seznam in evidentiranje prisotnosti.
+EventTide je spletna aplikacija za organizacijo dogodkov in upravljanje prijav udeležencev. Omogoča objavo dogodkov, prijave z omejenim številom mest, čakalni seznam in evidentiranje prisotnosti.
 
-Pripravljeno je osnovno razvojno okolje: React frontend, Express backend in povezava s PostgreSQL. Poslovne funkcionalnosti MVP so še v razvoju.
+Javni katalog je dostopen brez prijave. Iskanje po naslovu, kategoriji ali datumu pomaga najti dogodek, uporabniki pa po prijavi v pogledu **Moj račun** dobijo orodja za svojo vlogo.
 
 ## Uporabniške vloge
 
@@ -10,7 +10,7 @@ Pripravljeno je osnovno razvojno okolje: React frontend, Express backend in pove
 - **Organizator:** ustvarja dogodke, spremlja prijave in evidentira prisotnost.
 - **Administrator:** upravlja uporabniške račune, dodeljuje vloge in umika neprimerne dogodke.
 
-## Načrtovane funkcionalnosti MVP
+## Funkcionalnosti MVP
 
 - Objava, iskanje in filtriranje dogodkov.
 - Prijave z upoštevanjem kapacitete.
@@ -28,7 +28,7 @@ Med poznejšimi nadgradnjami so zasebni dogodki s kodo povabila ali QR-povezavo.
 - **Backend:** Node.js in Express.
 - **Podatkovna baza:** PostgreSQL.
 - **Dostop do baze:** knjižnica pg.
-- **Avtentikacija – načrtovano:** strežniške seje in bcrypt.
+- **Avtentikacija:** strežniške seje v PostgreSQL in zgoščevanje gesel z bcrypt.
 - **Lokalno okolje:** Docker Compose za podatkovno bazo.
 - **Preverjanje kode:** ESLint.
 - **Upravljanje različic:** Git in GitHub.
@@ -95,7 +95,7 @@ Izpisano vrednost vpišemo v `backend/.env` kot `SESSION_SECRET`.
 
 Če želimo ustvariti začetnega administratorja, v `backend/.env` nastavimo
 še `ADMIN_EMAIL` in `ADMIN_PASSWORD`. Geslo mora imeti najmanj 12 znakov
-in največ 72 bajtov UTF-8. Račun ustvarimo po izvedbi migracij.
+in največ 72 bajtov UTF-8. Račun ustvarimo po izvedbi migracij z ukazom `npm run admin:create --prefix backend` iz glavne mape projekta.
 
 Obe datoteki `.env` sta izključeni iz Gita. V repozitorij dodajamo samo
 vzorčni datoteki `.env.example` brez dejanskih gesel in skrivnosti.
@@ -165,7 +165,7 @@ Frontend je privzeto dosegljiv na:
 
 http://localhost:5173
 
-Uporabimo naslov, ki ga izpiše Vite. Če uporablja druga vrata, ustrezno prilagodimo `FRONTEND_URL` v `backend/.env` in ponovno zaženemo backend.
+Uporabimo naslov, ki ga izpiše Vite. Če se razlikuje od privzetega, nastavimo `FRONTEND_URL` v `backend/.env` na točen izvor (protokol, gostitelj in vrata, brez zaključne poševnice) in ponovno zaženemo backend. Javni katalog je na sveži bazi prazen, dokler organizator ne objavi prihodnjega javnega dogodka. Za nastavitev naslova API-ja glej [README frontenda](frontend/README.md).
 
 ## Preverjanje delovanja
 
@@ -266,7 +266,7 @@ Pripravljeno:
 
 - Projektna dokumentacija in wireframe-i.
 - Predloga in osem arhitekturnih odločitev.
-- Osnovni React frontend z Vite.
+- Odziven React frontend z javnim katalogom, podrobnostmi dogodkov in pogledom računa.
 - Osnovni Express backend.
 - PostgreSQL prek Docker Compose z imenovanim volumnom.
 - Pot `/api/health` za preverjanje povezave z bazo.
